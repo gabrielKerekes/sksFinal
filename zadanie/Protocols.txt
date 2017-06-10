@@ -1,0 +1,105 @@
+Notation:  
+
+[]_K  encrypted using key K, 
+N_A (N_B) - Alice's (Bob's) nonce
+S - session key
+H - hash function 
+HMAC_K - HMAC with key K and SHA256
+
+Protocols:
+	Initial Messages with KDC:
+		1. P  --> KDC [name], ["Hi I am "Your Name"]_K_KDCP
+		2. P <-- KDC [{IP1, port1, name1,key1, password1},{IP2, port2, name2,key2, password2},...]_K_KDCP
+			Session key K_KDCP = 0x0000000000000000 -- (will be changed when will be tested)
+	AKEP2(Alice, Bob, longterm key - LK): 
+		1. 			    N_A --> 
+		2. 				<-- [B, A, N_A, N_B],  HMAC_LK[B, A, N_A, N_B]
+		3. [A, N_B]_LK,HMAC_LK[A, N_B]	-->
+
+		S = HMAC_{LK+1}(N_B)	// last byte of key is incremented
+	
+	Lamport:
+		counter  = 1000
+		S=SHA256^counter(password), counter = counter - 1
+	
+	Otway-Rees(Alice, Bob, Server):
+		1. A  -->  B: A,B, N_A
+		2. B  --> TP: A,B, N_A, N_B
+		3. TP -->  B: [N_A, A, B, K_AB]_K_ATP, [N_B, A, B, K_AB]_K_BTP	//TP WAITS UNTIL BOTH K_ATP, K_BTP SESSION KEYS ARE SET
+		4. B  -->  A: TP, [N_A, A, B, K_AB]_K_ATP
+		
+		S = K_AB	
+	
+	RSA Key Exchange(SSH TLS):
+		1. A --> B: Certificate Request
+		2. A <-- B: Bob's Certificates
+		3. A --> B: [K_AB]_Pu_Bob
+			S = K_AB
+		
+	
+	HandshakeProtocol (Alice, Bob):
+		1. A, B, ID_K, ID_PASS, set of TTPs -->
+		2.				 <--  protocolID, TTP (shared )
+						*-->			
+		3.			[1]_K_AB -->			//FINISH
+		4.				 <-- [1]_K_AB		//FINISH
+					ErrorID  -->			//Alert
+						 <-- ErrorID		//Alert
+		* Use protocol: 
+		IF 	 protocol == 1		- AKEP2
+  		   	 protocol == 2		- Lamport
+			 protocol == 3	 	- Otway-Rees
+			 protocol == 4		- RSA
+		
+							
+		
+Parameters: 
+	Hash function - SHA256
+	HMAC - based on SHA256 RFC 2104
+	all encryptions [] using AES_CBC with 256 bit key with #PKCS7 padding
+	ID_K = SHA256(K)[0..7]			     (first 8 B of key hash is used as ID of key)
+	ID_PASS = SHA256(PASSWORD|BOB)[0..7] (first 8 B of password hash is used as ID of key)
+	RSA key - 1024 bit modulus with e = 3
+	Nonce length - 128 bits
+	
+
+All messages, keys, passwords are in PEM format - DER encoded by base64.
+
+-----BEGIN *-----
+BASE64 ENCODED DATA
+-----END * -----
+
+* = LONG TERM KEY
+	INITIAL MESSAGE x 	(x=1,2) 
+	ERROR MESSAGE
+	CHAT MESSAGE
+	AKEP2 MESSAGE x 	(x=1,2 or 3) 
+	OTWAY REES MESSAGE x 	(x=1,2,3,4) 
+	HANDSHAKE MESSAGE x 	(x=1,2,3 or 4)
+	SSH TLS MESSAGE x	(x=1,2 or 3)
+	
+Random data (Nonces, MAC,  Keys, Hash, ID_K, ID_PASS) stored as OCTET STRING
+Strings (names, protocolID, ErrorID) as PrintableString
+Certificate - standard format
+
+InitialMessage2 DEFINITIONS ::= BEGIN
+	KdcAnswer ::= SET OF KdcTuple
+
+	KdcTuple ::= SEQUENCE
+	{
+		ip		PrintableString,
+		port	INTEGER,
+		name	PrintableString,
+		key		OCTET STRING,
+		pass	PrintableString
+	}
+END
+
+TCP: prefix 4B = length of message
+CHAT MESSAGE FORMAT: 
+	IV | AES_CBC(M) | HMAC_S 
+
+[1]_K_AB -- encrypted first byte using shared session key(out 16)
+if no ID_K, ID_PASS -- set value to 0x0000...
+if no pass, TTP -- set value to empty string
+logNAME.txt -- Decoded all received(KDC + participants) messages 

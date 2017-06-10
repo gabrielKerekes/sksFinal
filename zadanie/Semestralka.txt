@@ -1,0 +1,70 @@
+Implement secure aplication for secure chat based on TCP protocol. 
+
+
+Use name of the form "mareksys" (no Capital no spaces)
+
+Roles: 
+	KDC  -- central point acting like a server
+	Participants -- acting like both server and client 
+
+0. Create standard RSA Certificate, e = 3, RSA-1024, NAME of the form = {mareksys}!!!
+   Sign certificates of 3 your colleagues. 	
+	
+1. Initialisation:
+		Each participant send encrypted message: "Hi I am "Your Name". 
+		
+		KDC will respond with:
+			Initial message: list of IP addresses of your coleagues  + long term key (128 bit) for some colleagues + password (arbitrary length string) for some colleagues 
+			
+		Example: 
+			3 Participants send to KDC(147.175.127.10:54321)
+				147.175.127.2:54321	"Hi I am ferotaraba"
+				147.175.127.3:55555	"Hi I am istvanfekete"
+				147.175.127.4:50000	"Hi I am karolpolak"
+			KDC sent back: 
+				147.175.127.2:54321 obtain 	{147.175.127.2 54321 ferotaraba key=NULL    pass=NULL   }, {147.175.127.3 55555 istvanfekete key=NULL       pass="pass1"},{147.175.127.4 50000 karolpolak key=NULL    pass=NULL}
+				147.175.127.3:54444 obtain	{147.175.127.2 54321 ferotaraba key=NULL    pass="pass1"}, {147.175.127.3 55555 istvanfekete key=NULL       pass=NULL   },{147.175.127.4 50000 karolpolak key=0x12332 pass=NULL}
+				147.175.127.4:50000 obtain	{147.175.127.2 54321 ferotaraba key=NULL    pass=NULL}   , {147.175.127.3 55555 istvanfekete key=0x12332... pass=NULL   },{147.175.127.4 50000 karolpolak key=NULL    pass=NULL} 
+			i.e. 
+				1. istvanfekete and ferotaraba share password "pass1"
+				2. karolpolak and istvanfekete share long term key=0x12332...
+
+2. In the next step all participants try to send encrypted message "I am ???" to all other participants 
+	??? = your name
+
+	Each participants run handshake with others: 
+		Goal of the handshake is:
+		- Establish session key (for AES-CBC) between A--B key based on existing long term key, password or Otway-Rees with shared (A,B share some secret with C) trusted third participant C
+		- Confirm correctness of session key.
+	For example handshake A -- B:
+		1. Initiator A send : name A, name B, ID of long term key with B(if there is some), ID of password shared with B, list of TTP 
+		2. B check whether he realy have key, password and protocol which will be used to establish session key
+					send: ProtocolID, TTP
+					
+				
+		3. A--B use protocol:
+				1. IF Long term key: AKEP2 with SHA256 is used
+				2. ELSE IF share password: Lamport's scheme for update (RFC 1938)
+				3. ELSE IF both A,B trust(share some secret -- long term key,password) C: Otway-Rees is used
+				4. ELSE Public key (RSA) is used. (BONUS task -- using certificate)
+				and session key K_AB is generated
+		4. both A,B sides send encrypted [1]_K_AB single byte=0x01 in order to prove that both have correct session key K_AB.
+
+	
+		Example: 
+			ferotaraba -- istvanfekete"
+					1. ferotaraba send message: ferotaraba, istvanfekete, NULL, SHA256("pass1istvanfekete")[0..7], {istvanfekete}
+					2. istvanfekete check correctness of password and since no key is shared with fero send 
+							protocolID=2, TPP ={NULL}
+					3. 	ferotaraba and istvanfekete -- set counter of Lamport scheme to 1000 and both generate 
+							session key S based on hash function SHA256.
+					4. Both sends encrypted [1] with session key S
+		
+			ferotaraba -- karolpolak
+					1. ferotaraba send message: ferotaraba, karolpolak, NULL, NULL, {istvanfekete}
+					2. karolpolak - since no key and password is shared  karol chooses istvanfekete as TPP used in Otway-ress since 
+							both ferotaraba, karolpolak have some secret with istvanfekete 
+							protocolID=3, TPP ={istvanfekete}
+					3. 	ferotaraba start OtwayRees through istvanfekete ... istvanfekete generates session key for ferotaraba, karolpolak ...
+					4. Both sends encrypted [1] with session key S	
+		Session key doesn not change!!! Only exception is Lamport -- here session key is changed  with message connection.
