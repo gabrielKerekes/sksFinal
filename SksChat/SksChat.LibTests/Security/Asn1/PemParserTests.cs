@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SksChat.Lib.Encodings.Asn1;
+using SksChat.Lib.Encodings.Pem;
 using SksChat.Lib.Messages;
 
 namespace SksChat.Lib.Security.Asn1.Tests
@@ -20,7 +22,7 @@ namespace SksChat.Lib.Security.Asn1.Tests
             var expectedSequenceBase64 = Convert.ToBase64String(expectedSequence);
             var expected = $"-----BEGIN INITIAL MESSAGE 1-----{expectedSequenceBase64}-----END INITIAL MESSAGE 1";
 
-            var messageBytes = PemParser.GetMessageBytes(expected);
+            var messageBytes = PemParser.GetMessageContentBytes(expected);
             CollectionAssert.AreEqual(expectedSequence, messageBytes);
         }
 

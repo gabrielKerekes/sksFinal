@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace SksChat.Lib.Security.Asn1
+namespace SksChat.Lib.Encodings.Asn1
 {
     public class SksAsn1Encoder
     {
@@ -18,6 +17,11 @@ namespace SksChat.Lib.Security.Asn1
 
         public static byte[] EncodeOctetString(byte[] bytes)
         {
+            if (bytes == null)
+            {
+                return CreateHeader(SksAsn1Type.OctetString, 0);
+            }
+
             var printableStringHeader = CreateHeader(SksAsn1Type.OctetString, bytes.Length);
             var printableStringBody = bytes;
 
@@ -36,11 +40,16 @@ namespace SksChat.Lib.Security.Asn1
 
         public static byte[] EncodeSequence(List<object> objects)
         {
-            byte[] encodedSequence = new byte[] {};
+            var encodedSequence = new byte[] {};
             foreach (var obj in objects)
             {
+
                 byte[] encodedObject = new byte[] {};
-                if (obj is int)
+                if (obj == null)
+                {
+                    encodedObject = EncodeOctetString((byte[])obj);
+                }
+                else if (obj is int)
                 {
                     encodedObject = EncodeInteger((int) obj);
                 }
@@ -54,11 +63,7 @@ namespace SksChat.Lib.Security.Asn1
                 }
                 else if (obj is List<object>)
                 {
-                    //encodedObject = EncodePrintableString((List<object>) obj);
-                }
-                else if (obj is List<List<object>>)
-                {
-                    // todo: dorobit set
+                    encodedObject = EncodeSequence((List<object>) obj);
                 }
 
                 encodedSequence = encodedSequence.Concat(encodedObject).ToArray();

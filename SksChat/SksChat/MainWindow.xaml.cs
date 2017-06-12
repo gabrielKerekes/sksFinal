@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,7 +10,7 @@ using SksChat.Lib;
 using SksChat.Lib.Database;
 using SksChat.Lib.Log;
 using SksChat.Lib.Messages;
-using SksChat.Lib.Security.Asn1;
+using SksChat.Lib.Messages.Kdc;
 using SksChat.Lib.Security.Encryption;
 
 namespace SksChat
@@ -24,61 +26,83 @@ namespace SksChat
 
         private static SksServer server;
         private static SksClient client;
+        public List<UserRadioButton> UserRadioButtons { get; set; }
+
+        private User selectedUser;
 
         public MainWindow()
         {
             InitializeComponent();
 
-            // todo: tu skoncene..treba nejak poriesit init celej libky, alebo daco take 
-            Logger.Initialize("logFile.txt");
+            var logFileName = $"logFile{DateTime.Now.Ticks}.txt";
+            Lib.Lib.Init("gabrielkerekes", logFileName);
+            LogFileNameLabel.Content = logFileName;
 
-            using (Aes myAes = Aes.Create())
-            {
-                var b = SksAes.EncryptStringToBytes_Aes("gabrielkerekesatakdalejloremipsumdolor", myAes.Key, myAes.IV);
-                var t = SksAes.DecryptStringFromBytes_Aes(b, myAes.Key, myAes.IV);
-            }
+            //using (Aes myAes = Aes.Create())
+            //{
+            //    var b = SksAes.EncryptBytes_Aes(KdcKey.Concat(KdcKey).Concat(KdcKey).ToArray(), myAes.Key, myAes.IV);
+            //    var t = SksAes.DecryptBytesFromBytes_Aes(b, myAes.Key, myAes.IV);
+            //}
 
             //SksSqlite.Init();
             //SksSqlite.AddNewUser("gabrielkerekes", "127.0.0.1", "123", "123");
 
             //SksAsn1Parser.ParseTest();
 
-            var u = new SksUser();
-            u.Password = "gabrielkerekes";
-            u.Key = KdcKey;
+            //var u = new User();
+            //u.Password = "gabrielkerekes";
+            //u.Key = KdcKey;
 
-            var kid = u.KeyId;
-            var pid = u.PasswordId;
+            //var kid = u.KeyId;
+            //var pid = u.PasswordId;
+
+            //SksClient.NewClientCreated += (source, args) =>
+            //{
+            //    ((SksClient) source).MessageReceived += Server_MessageReceived;
+            //};
+
+            InitKdc();
         }
 
         #region client
 
         private void ClientToggleStatusButton_Click(object sender, RoutedEventArgs e)
         {
-            if (client == null)
-                // todo: try catch na parse
-                client = new SksClient(UsernameTextBox.Text, ClientIpTextBox.Text, int.Parse(ClientPortTextBox.Text));
+            var user = selectedUser;
+            if (user == null)
+                // todo: some error - user doesn't exist
+                return;
+            
+            if (user.Client == null)
+                user.Client = new SksClient(user);
 
-            if (!client.Connected)
+            if (!user.Client.Connected)
             {
-                if (!client.Connect())
+                if (!user.Client.Connect())
                 {
                     MessageBox.Show("Client couldn't connect");
                     return;
                 }
 
+                user.Client.ChatMessageReceived += Server_MessageReceived;  
+
                 ClientToggleStatusButton.CurrentStatus = ConnectionStatusButton.Status.Connected;
             }
             else
             {
-                client?.Disconnect();
+                user.Client?.Disconnect();
+
                 ClientToggleStatusButton.CurrentStatus = ConnectionStatusButton.Status.Disconnected;
             }
         }
 
+        // todo: aj odoslane spravy davat do textboxu ale s nejakym prepend....prepend pridat
+        // aj na prisle spravy...nech pise ze kto to poslal ...
         private void SendMessageButton_Click(object sender, RoutedEventArgs e)
         {
-            client?.SendMessage(MessageTextBox.Text);
+            //selectedUser.Client?.SendMessage(MessageTextBox.Text);
+            selectedUser.SendChatMessage(MessageTextBox.Text);
+            ReceivedMessagesTextBlock.Text += $"{selectedUser.Name} <- {MessageTextBox.Text}\n";
             //var key = KdcKey;
             //client?.SendMessage(Convert.ToBase64String(SksAes.EncryptStringToBytes_Aes("Hi I am \"gabrielkerekes\"", key, key)));
         }
@@ -95,9 +119,9 @@ namespace SksChat
 
             if (!server.Connected)
             {
-                server.Connect();
-                server.MessageReceived -= Server_MessageReceived;
-                server.MessageReceived += Server_MessageReceived;
+                server.Connect(Server_MessageReceived);
+                //server.MessageReceived -= Server_MessageReceived;
+                //server.MessageReceived += Server_MessageReceived;
 
                 ServerToggleStatusButton.CurrentStatus = ConnectionStatusButton.Status.Connected;
             }
@@ -106,7 +130,7 @@ namespace SksChat
                 if (server == null)
                     return;
 
-                server.MessageReceived -= Server_MessageReceived;
+                //server.MessageReceived -= Server_MessageReceived;
                 server.Disconnect();
 
                 ServerToggleStatusButton.CurrentStatus = ConnectionStatusButton.Status.Disconnected;
@@ -117,7 +141,18 @@ namespace SksChat
         {
             lock (ReceivedMessagesTextBlockLock)
             {
-                Dispatcher.Invoke(() => { ReceivedMessagesTextBlock.Text += $"{sksMessageReceivedEventArgs.Message}\n"; });
+                if (sksMessageReceivedEventArgs.FromIp == "147.175.127.10" && sksMessageReceivedEventArgs.FromPort == 54321)
+                {
+                    var users = KdcHelloResponse.FromString(sksMessageReceivedEventArgs.Message, Lib.Lib.KdcKey).Users;
+
+                    AddUsersRadioButtons(users);
+                    Lib.Lib.AddUsers(users);
+
+                    return;
+                }
+
+                var user = Lib.Lib.GetUserByIpAndPort(sksMessageReceivedEventArgs.FromIp, sksMessageReceivedEventArgs.FromPort);
+                Dispatcher.Invoke(() => { ReceivedMessagesTextBlock.Text += $"{user.Name} -> {sksMessageReceivedEventArgs.Message}\n"; });
             }
         }
 
@@ -127,12 +162,58 @@ namespace SksChat
 
         private void KdcInitButton_OnClick(object sender, RoutedEventArgs e)
         {
-            var name = "gabrielkerekes";
-            var encryptedHiMessage = SksAes.EncryptStringToBytes_Aes($"Hi I am {name}", KdcKey, KdcKey);
+            InitKdc();
+        }
 
-            var message = new KdcHelloRequest(name, encryptedHiMessage);
+        private void InitKdc()
+        {
+            // var name = "gabrielkerekes";
 
-            var encodedMessage = message.Encode();
+            // var message = new KdcHelloRequest(name, Lib.Lib.KdcKey);
+
+            // var encodedMessage = message.ToString();
+            // var kdcClient = new SksClient(new User {IpAddress = "147.175.127.10", Port= "54321"});
+            // kdcClient.MessageReceived += Server_MessageReceived;
+            // kdcClient.Connect();
+            //kdcClient.SendMessage(encodedMessage);
+            var user1 = new User { Name = "gabo1", IpAddress = "127.0.0.1", Port = "56789", Key = KdcKey, Password = "asdasdasdasdasd", };
+            var user2 = new User { Name = "gabo2" };
+            var user3 = new User { Name = "gabo3" };
+            var user4 = new User { Name = "gabo4" };
+            var users = new List<User> { user1, user2, user3, user4, };
+
+            AddUsersRadioButtons(users);
+            Lib.Lib.AddUsers(users);
+        }
+
+        private void AddUsersRadioButtons(List<User> users)
+        {
+            UserRadioButtons = new List<UserRadioButton>();
+
+            foreach (var user in users)
+            {
+                var radioButton = new UserRadioButton(user);
+                radioButton.Checked += RadioButton_Checked;
+
+                UserRadioButtons.Add(radioButton);
+                RadioButtonsStackPanel.Children.Add(radioButton);
+            }
+
+            UserRadioButtons[0].IsChecked = true;
+        }
+
+        private void RadioButton_Checked(object sender, RoutedEventArgs e)
+        {
+            foreach (var radioButton in UserRadioButtons)
+            {
+                if (!radioButton.IsChecked.HasValue || !radioButton.IsChecked.Value)
+                {
+                    continue;
+                }
+
+                selectedUser = radioButton.User;
+                break;
+            }
         }
 
         #endregion

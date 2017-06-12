@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SksChat.Lib.Encodings.Asn1;
 
 namespace SksChat.Lib.Security.Asn1.Tests
 {

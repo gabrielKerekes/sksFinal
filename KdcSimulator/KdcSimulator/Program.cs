@@ -10,7 +10,7 @@ namespace KdcSimulator
     {
         public static void Main(string[] args)
         {
-            var server = new Server(54321);
+            var server = new Server(56789);
             server.Connect();
 
             while (true) ;

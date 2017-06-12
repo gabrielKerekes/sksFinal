@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using SksChat.Lib.Encodings.Asn1;
+using SksChat.Lib.Messages.Kdc;
 using SksChat.Lib.Security.Asn1;
 
 namespace SksChat.Lib.Messages.Tests

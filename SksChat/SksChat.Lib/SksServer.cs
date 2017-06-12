@@ -8,20 +8,12 @@ using SksChat.Lib.Log;
 
 namespace SksChat.Lib
 {
-    public class SksMessageReceivedEventArgs : EventArgs
-    {
-        public string FromIp { get; set; }
-        public string Message { get; set; }
-    }
-
     public class SksServer
     {
         private const string LogTag = "SERVER";
         private const string LocalhostIp = "127.0.0.1";
 
-        public delegate void MessageReceivedEventHandler(object source, SksMessageReceivedEventArgs e);
-
-        public MessageReceivedEventHandler MessageReceived;
+        private Action<object, SksMessageReceivedEventArgs> callback;
 
         public int Port { get; set; }
         public bool Connected { get; set; }
@@ -33,15 +25,16 @@ namespace SksChat.Lib
             Port = port;
         }
 
-        public void Connect()
+        public void Connect(Action<object, SksMessageReceivedEventArgs> callback)
         {
             if (Connected)
                 return;
 
+            this.callback = callback;
+
             if (tcpListener == null)
                 InitTcpListener();
-
-            tcpListener.Start();
+            
             tcpListener.BeginAcceptTcpClient(AcceptConnectionCallback, tcpListener);
         }
 
@@ -68,55 +61,15 @@ namespace SksChat.Lib
             var listener = (TcpListener) ar.AsyncState;
             var client = listener.EndAcceptTcpClient(ar);
             tcpListener.BeginAcceptTcpClient(AcceptConnectionCallback, tcpListener);
-            client.ReceiveTimeout = 500;
 
-            ReceiveMessagesLoop(client);
-        }
+            var sksClient = new SksClient(client);
 
-        private void ReceiveMessagesLoop(TcpClient client)
-        {
-            while (true)
-            {
-                try
-                {
-                    var readBuffer = new byte[50];
-                    client.GetStream().Read(readBuffer, 0, 50);
-                    var readString = Encoding.ASCII.GetString(readBuffer).Replace("\0", "");
+            var user = Lib.GetUserByIpAndPort(sksClient.IpAddress, sksClient.Port);
+            if (user.Client == null)
+                user.Client = sksClient;
 
-                    InvokeMessageReceivedEvent(client, readString);
-
-                    Logger.Log(LogTag, $"Read text => {readString}");
-                }
-                catch (IOException)
-                {
-                    // ignore
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.StackTrace);
-                }
-            }
-        }
-
-        private void InvokeMessageReceivedEvent(TcpClient client, string message)
-        {
-            var args = new object[] { this, new SksMessageReceivedEventArgs { Message = message } };
-
-            if (MessageReceived == null)
-                return;
-
-            foreach (var d in MessageReceived.GetInvocationList())
-            {
-                var syncer = d.Target as ISynchronizeInvoke;
-                if (syncer == null)
-                {
-                    d.DynamicInvoke(args);
-                }
-                else
-                {
-                    syncer.BeginInvoke(d, args);
-                }
-            }
+            user.Client.ChatMessageReceived += (source, args) => callback(source, args);
+            user.Client.ReceiveMessagesLoop();
         }
     }
 }

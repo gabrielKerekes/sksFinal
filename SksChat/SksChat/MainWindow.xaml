@@ -28,9 +28,9 @@
         <TextBox x:Name="UsernameTextBox" HorizontalAlignment="Left" Height="23" Margin="10,36,0,0" TextWrapping="Wrap" Text="gabrielkerekes" VerticalAlignment="Top" Width="120"/>
         <Label Content="Users" HorizontalAlignment="Left" Margin="177,10,0,0" VerticalAlignment="Top"/>
         <!-- todo: do scroll view asi bude treba -->
-        <StackPanel HorizontalAlignment="Left" Height="368" Margin="177,41,0,0" VerticalAlignment="Top" Width="228">
-            <RadioButton GroupName="UserRadioButtons" Content="RadioButton" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+        <StackPanel x:Name="RadioButtonsStackPanel" HorizontalAlignment="Left" Height="368" Margin="177,41,0,0" VerticalAlignment="Top" Width="228">
         </StackPanel>
         <Button x:Name="KdcInitButton" Content="KdcInit" Click="KdcInitButton_OnClick" HorizontalAlignment="Left" Margin="632,70,0,0" VerticalAlignment="Top" Width="75"/>
+        <Label x:Name="LogFileNameLabel" Content="" HorizontalAlignment="Left" Margin="10,383,0,0" VerticalAlignment="Top"/>
     </Grid>
 </Window>

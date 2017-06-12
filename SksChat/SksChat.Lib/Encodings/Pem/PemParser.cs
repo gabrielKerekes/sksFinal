@@ -1,12 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace SksChat.Lib.Security.Asn1
+namespace SksChat.Lib.Encodings.Pem
 {
-    public class PemMessageTypes
+    public static class PemMessageTypes
     {
         public const string LongTermKeyTitle = "LONG TERM KEY";
         public const string InitialMessage1Title = "INITIAL MESSAGE 1";
@@ -79,6 +76,9 @@ namespace SksChat.Lib.Security.Asn1
 
         public static PemMessageType GetMessageType(string message)
         {
+            if (!message.StartsWith("-----BEGIN"))
+                return PemMessageType.ChatMessage;
+
             message = RemoveNewLinesFromMessage(message);
 
             var messageSplit = SplitMessage(message);
@@ -96,13 +96,13 @@ namespace SksChat.Lib.Security.Asn1
             return message.Replace("\n", "");
         }
 
-        public static byte[] GetMessageBytes(string message)
+        public static byte[] GetMessageContentBytes(string message)
         {
             message = RemoveNewLinesFromMessage(message);
 
             var messageSplit = message.Split(new[] {"-----"}, StringSplitOptions.RemoveEmptyEntries);
 
-            return Convert.FromBase64String(messageSplit[1]);
+            return Utils.FromBase64(messageSplit[1]);
         }
     }
 }

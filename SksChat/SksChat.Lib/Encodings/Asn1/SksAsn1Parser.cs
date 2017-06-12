@@ -1,12 +1,9 @@
 ﻿using System;
-using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace SksChat.Lib.Security.Asn1
+namespace SksChat.Lib.Encodings.Asn1
 {
     // INTEGER - 2
     // OCTET STRING - 4
@@ -91,7 +88,7 @@ namespace SksChat.Lib.Security.Asn1
 
             var intBytes = message.Skip(integerStart + 2).Take(length).ToList();
 
-            if (length < 4)
+            if (intBytes.Count < 4)
             {
                 while (intBytes.Count < 4)
                 {
@@ -101,8 +98,7 @@ namespace SksChat.Lib.Security.Asn1
 
             return BitConverter.ToInt32(intBytes.ToArray(), 0);
         }
-
-        // todo: GABO - skusit spravit parser classy....
+        
         private static string ParsePrintableString(byte[] message, int stringStart)
         {
             var length = message[stringStart + 1];
