@@ -167,23 +167,30 @@ namespace SksChat
 
         private void InitKdc()
         {
-            // var name = "gabrielkerekes";
+            try
+            {
+                var name = "gabrielkerekes";
 
-            // var message = new KdcHelloRequest(name, Lib.Lib.KdcKey);
+                var message = new KdcHelloRequest(name, Lib.Lib.KdcKey);
 
-            // var encodedMessage = message.ToString();
-            // var kdcClient = new SksClient(new User {IpAddress = "147.175.127.10", Port= "54321"});
-            // kdcClient.MessageReceived += Server_MessageReceived;
-            // kdcClient.Connect();
-            //kdcClient.SendMessage(encodedMessage);
-            var user1 = new User { Name = "gabo1", IpAddress = "127.0.0.1", Port = "56789", Key = KdcKey, Password = "asdasdasdasdasd", };
-            var user2 = new User { Name = "gabo2" };
-            var user3 = new User { Name = "gabo3" };
-            var user4 = new User { Name = "gabo4" };
-            var users = new List<User> { user1, user2, user3, user4, };
+                var encodedMessage = message.ToString();
+                var kdcClient = new SksClient(new User {IpAddress = "147.175.127.10", Port = "54321"});
+                kdcClient.MessageReceived += Server_MessageReceived;
+                kdcClient.Connect();
+                kdcClient.SendMessage(encodedMessage);
+            }
+            catch (Exception e)
+            {
+                Logger.Log("ERROR", $"Some exception {e.Message}");
+                var user1 = new User { Name = "gabo1", IpAddress = "127.0.0.1", Port = "56789", Key = KdcKey, Password = "asdasdasdasdasd", };
+                var user2 = new User { Name = "gabo2" };
+                var user3 = new User { Name = "gabo3" };
+                var user4 = new User { Name = "gabo4" };
+                var users = new List<User> { user1, user2, user3, user4, };
 
-            AddUsersRadioButtons(users);
-            Lib.Lib.AddUsers(users);
+                AddUsersRadioButtons(users);
+                Lib.Lib.AddUsers(users);
+            }
         }
 
         private void AddUsersRadioButtons(List<User> users)
